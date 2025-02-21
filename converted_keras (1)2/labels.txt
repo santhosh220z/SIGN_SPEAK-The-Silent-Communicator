@@ -1,0 +1,10 @@
+0 good job
+1 hello
+2 house
+3 lose
+4 Love
+5 no
+6 play
+7 thank you
+8 victory
+9 yes
