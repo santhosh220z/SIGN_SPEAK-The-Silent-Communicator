@@ -1,0 +1,282 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "label": "app.py",
+      "file_type": "code",
+      "source_file": "app.py",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "app",
+      "community": 1,
+      "norm_label": "app.py"
+    },
+    {
+      "label": "speak()",
+      "file_type": "code",
+      "source_file": "app.py",
+      "source_location": "L11",
+      "_origin": "ast",
+      "id": "app_speak",
+      "community": 1,
+      "norm_label": "speak()"
+    },
+    {
+      "label": "start_webcam()",
+      "file_type": "code",
+      "source_file": "app.py",
+      "source_location": "L40",
+      "_origin": "ast",
+      "id": "app_start_webcam",
+      "community": 1,
+      "norm_label": "start_webcam()"
+    },
+    {
+      "label": "stop_webcam()",
+      "file_type": "code",
+      "source_file": "app.py",
+      "source_location": "L43",
+      "_origin": "ast",
+      "id": "app_stop_webcam",
+      "community": 1,
+      "norm_label": "stop_webcam()"
+    },
+    {
+      "label": "data2.py",
+      "file_type": "code",
+      "source_file": "data2.py",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "data2",
+      "community": 2,
+      "norm_label": "data2.py"
+    },
+    {
+      "label": "README.md",
+      "file_type": "document",
+      "source_file": "README.md",
+      "summary": "# SIGN_SPEAK-The-Silent-Communicator",
+      "id": "doc:README.md",
+      "community": 3,
+      "norm_label": "readme.md"
+    },
+    {
+      "label": "labels.txt",
+      "file_type": "document",
+      "source_file": "converted_keras (1)2/labels.txt",
+      "summary": "Sign language gesture classes: 0 good job, 1 hello, 2 house, 3 lose, 4 Love, 5 no, 6 play, 7 thank you, 8 victory, 9 yes",
+      "id": "doc:labels.txt",
+      "community": 0,
+      "norm_label": "labels.txt"
+    },
+    {
+      "label": "0 good job",
+      "file_type": "concept",
+      "source_file": "converted_keras (1)2/labels.txt",
+      "summary": "Gesture class 0 good job",
+      "id": "concept:class:0 good job",
+      "community": 0,
+      "norm_label": "0 good job"
+    },
+    {
+      "label": "1 hello",
+      "file_type": "concept",
+      "source_file": "converted_keras (1)2/labels.txt",
+      "summary": "Gesture class 1 hello",
+      "id": "concept:class:1 hello",
+      "community": 0,
+      "norm_label": "1 hello"
+    },
+    {
+      "label": "2 house",
+      "file_type": "concept",
+      "source_file": "converted_keras (1)2/labels.txt",
+      "summary": "Gesture class 2 house",
+      "id": "concept:class:2 house",
+      "community": 0,
+      "norm_label": "2 house"
+    },
+    {
+      "label": "3 lose",
+      "file_type": "concept",
+      "source_file": "converted_keras (1)2/labels.txt",
+      "summary": "Gesture class 3 lose",
+      "id": "concept:class:3 lose",
+      "community": 0,
+      "norm_label": "3 lose"
+    },
+    {
+      "label": "4 Love",
+      "file_type": "concept",
+      "source_file": "converted_keras (1)2/labels.txt",
+      "summary": "Gesture class 4 Love",
+      "id": "concept:class:4 Love",
+      "community": 0,
+      "norm_label": "4 love"
+    },
+    {
+      "label": "5 no",
+      "file_type": "concept",
+      "source_file": "converted_keras (1)2/labels.txt",
+      "summary": "Gesture class 5 no",
+      "id": "concept:class:5 no",
+      "community": 0,
+      "norm_label": "5 no"
+    },
+    {
+      "label": "6 play",
+      "file_type": "concept",
+      "source_file": "converted_keras (1)2/labels.txt",
+      "summary": "Gesture class 6 play",
+      "id": "concept:class:6 play",
+      "community": 0,
+      "norm_label": "6 play"
+    },
+    {
+      "label": "7 thank you",
+      "file_type": "concept",
+      "source_file": "converted_keras (1)2/labels.txt",
+      "summary": "Gesture class 7 thank you",
+      "id": "concept:class:7 thank you",
+      "community": 0,
+      "norm_label": "7 thank you"
+    },
+    {
+      "label": "8 victory",
+      "file_type": "concept",
+      "source_file": "converted_keras (1)2/labels.txt",
+      "summary": "Gesture class 8 victory",
+      "id": "concept:class:8 victory",
+      "community": 0,
+      "norm_label": "8 victory"
+    },
+    {
+      "label": "9 yes",
+      "file_type": "concept",
+      "source_file": "converted_keras (1)2/labels.txt",
+      "summary": "Gesture class 9 yes",
+      "id": "concept:class:9 yes",
+      "community": 0,
+      "norm_label": "9 yes"
+    }
+  ],
+  "links": [
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app.py",
+      "source_location": "L11",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app",
+      "target": "app_speak",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app.py",
+      "source_location": "L40",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app",
+      "target": "app_start_webcam",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app.py",
+      "source_location": "L43",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app",
+      "target": "app_stop_webcam",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "defines_class",
+      "edge_type": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "converted_keras (1)2/labels.txt",
+      "source": "doc:labels.txt",
+      "target": "concept:class:0 good job"
+    },
+    {
+      "relation": "defines_class",
+      "edge_type": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "converted_keras (1)2/labels.txt",
+      "source": "doc:labels.txt",
+      "target": "concept:class:1 hello"
+    },
+    {
+      "relation": "defines_class",
+      "edge_type": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "converted_keras (1)2/labels.txt",
+      "source": "doc:labels.txt",
+      "target": "concept:class:2 house"
+    },
+    {
+      "relation": "defines_class",
+      "edge_type": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "converted_keras (1)2/labels.txt",
+      "source": "doc:labels.txt",
+      "target": "concept:class:3 lose"
+    },
+    {
+      "relation": "defines_class",
+      "edge_type": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "converted_keras (1)2/labels.txt",
+      "source": "doc:labels.txt",
+      "target": "concept:class:4 Love"
+    },
+    {
+      "relation": "defines_class",
+      "edge_type": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "converted_keras (1)2/labels.txt",
+      "source": "doc:labels.txt",
+      "target": "concept:class:5 no"
+    },
+    {
+      "relation": "defines_class",
+      "edge_type": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "converted_keras (1)2/labels.txt",
+      "source": "doc:labels.txt",
+      "target": "concept:class:6 play"
+    },
+    {
+      "relation": "defines_class",
+      "edge_type": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "converted_keras (1)2/labels.txt",
+      "source": "doc:labels.txt",
+      "target": "concept:class:7 thank you"
+    },
+    {
+      "relation": "defines_class",
+      "edge_type": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "converted_keras (1)2/labels.txt",
+      "source": "doc:labels.txt",
+      "target": "concept:class:8 victory"
+    },
+    {
+      "relation": "defines_class",
+      "edge_type": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "converted_keras (1)2/labels.txt",
+      "source": "doc:labels.txt",
+      "target": "concept:class:9 yes"
+    }
+  ],
+  "hyperedges": [],
+  "built_at_commit": "e886b23997d11322cc2ff5563be11801e78092b5"
+}
