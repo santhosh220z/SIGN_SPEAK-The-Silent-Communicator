@@ -472,6 +472,12 @@ if st.session_state["run_webcam"]:
             frame_window.image(cv2.cvtColor(img_output, cv2.COLOR_BGR2RGB), use_container_width=True)
 
     finally:
+        if face_lm:
+            face_lm.close()
+        if pose_lm:
+            pose_lm.close()
+        if hand_lm:
+            hand_lm.close()
         cap.release()
         cv2.destroyAllWindows()
         frame_window.empty()
