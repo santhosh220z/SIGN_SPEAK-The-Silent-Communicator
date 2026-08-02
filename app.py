@@ -15,6 +15,10 @@ from collections import deque
 # Page Configuration
 st.set_page_config(page_title="SIGN SPEAK - Silent Communicator", page_icon="🤟", layout="wide")
 
+# Session state for page navigation
+if "page" not in st.session_state:
+    st.session_state["page"] = "landing"
+
 BASE_DIR = Path(__file__).parent.resolve()
 MODEL_DIR = BASE_DIR / "MODEL"
 WEIGHTS_PATH = MODEL_DIR / "Transformer.weights.h5"
@@ -300,25 +304,162 @@ def load_mediapipe_tasks():
         st.sidebar.error(f"MediaPipe Tasks load error: {e}")
         return None, None, None
 
-# Header UI
-st.title("🤟 SIGN SPEAK - Real-Time Transformer Sign Language Translation")
-st.markdown("Translating sequence-based hand & body gestures into spoken audio & text using a **1D-CNN Transformer** model.")
+# Sidebar Navigation
+st.sidebar.title("🤟 SIGN SPEAK")
+page = st.sidebar.radio("Navigate", ["🏠 Landing Page", "🎥 Live Recognition", "ℹ️ About"], index=0 if st.session_state["page"] == "landing" else 1)
+st.session_state["page"] = "landing" if page == "🏠 Landing Page" else ("recognize" if page == "🎥 Live Recognition" else "about")
 
-# Sidebar Configuration
-st.sidebar.title("⚙️ System Status")
+# Load models only when needed
 model, preprocess_layer = load_transformer_model()
 index_to_label = load_label_map()
 face_lm, pose_lm, hand_lm = load_mediapipe_tasks()
 
-if model is not None and face_lm is not None:
-    st.sidebar.success("✅ Transformer Model & MediaPipe Tasks Loaded")
-else:
-    st.sidebar.error("❌ Component Initialization Failed")
+if st.session_state["page"] == "landing":
+    # ==================== LANDING PAGE ====================
+    st.markdown("""
+    <div style="text-align: center; padding: 2rem 0;">
+        <h1 style="font-size: 3.5rem; margin-bottom: 0.5rem;">🤟 SIGN SPEAK</h1>
+        <h2 style="font-weight: 300; color: #666; margin-bottom: 2rem;">The Silent Communicator</h2>
+        <p style="font-size: 1.2rem; color: #444; max-width: 800px; margin: 0 auto;">
+            Real-time American Sign Language translation using a 1D-CNN Transformer model.
+            Speak with your hands — we'll translate to text and speech instantly.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
-st.sidebar.markdown(f"**Loaded Sign Classes:** {len(index_to_label)}")
-confidence_threshold = st.sidebar.slider("Confidence Threshold", min_value=0.1, max_value=0.9, value=0.35, step=0.05)
+    st.markdown("---")
 
-# Session State Initialization
+    # Feature cards
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown("""
+        <div style="padding: 1.5rem; border-radius: 10px; background: #f0f2f6; text-align: center;">
+            <h3 style="margin-bottom: 0.5rem;">🎯 250 ASL Classes</h3>
+            <p style="color: #666;">Trained on ASL Citizen dataset covering words, phrases, and finger-spelling</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown("""
+        <div style="padding: 1.5rem; border-radius: 10px; background: #f0f2f6; text-align: center;">
+            <h3 style="margin-bottom: 0.5rem;">🧠 Transformer Architecture</h3>
+            <p style="color: #666;">1D-CNN + Multi-head Attention for sequence-based gesture understanding</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col3:
+        st.markdown("""
+        <div style="padding: 1.5rem; border-radius: 10px; background: #f0f2f6; text-align: center;">
+            <h3 style="margin-bottom: 0.5rem;">🔊 Real-time TTS</h3>
+            <p style="color: #666;">Instant text-to-speech output for seamless communication</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("## How It Works")
+    st.markdown("""
+    <div style="display: flex; justify-content: space-between; text-align: center; margin: 2rem 0;">
+        <div style="flex: 1; padding: 1rem;">
+            <div style="font-size: 2rem;">📹</div>
+            <h4>Capture</h4>
+            <p style="color: #666;">Webcam captures hand, face & pose landmarks via MediaPipe (543 points)</p>
+        </div>
+        <div style="flex: 1; padding: 1rem;">
+            <div style="font-size: 2rem;">⚡</div>
+            <h4>Process</h4>
+            <p style="color: #666;">Sequence of 64 frames normalized & fed into Transformer model</p>
+        </div>
+        <div style="flex: 1; padding: 1rem;">
+            <div style="font-size: 2rem;">🎯</div>
+            <h4>Predict</h4>
+            <p style="color: #666;">250-class classification with confidence scoring</p>
+        </div>
+        <div style="flex: 1; padding: 1rem;">
+            <div style="font-size: 2rem;">🔊</div>
+            <h4>Speak</h4>
+            <p style="color: #666;">Detected signs spoken aloud & logged in history</p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # Quick start button
+    col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
+    with col_btn2:
+        if st.button("🚀 Start Live Recognition", use_container_width=True, type="primary"):
+            st.session_state["page"] = "recognize"
+            st.rerun()
+
+    # System status
+    st.markdown("## System Status")
+    status_col1, status_col2 = st.columns(2)
+    with status_col1:
+        if model is not None:
+            st.success("✅ Transformer Model Loaded")
+        else:
+            st.error("❌ Transformer Model Failed")
+    with status_col2:
+        if face_lm is not None:
+            st.success("✅ MediaPipe Tasks Ready")
+        else:
+            st.error("❌ MediaPipe Tasks Failed")
+
+    st.info(f"**Model Classes:** {len(index_to_label)} | **Input:** 64 frames × 543 landmarks × 6 channels")
+
+elif st.session_state["page"] == "about":
+    # ==================== ABOUT PAGE ====================
+    st.title("ℹ️ About SIGN SPEAK")
+    
+    st.markdown("""
+    ### Project Overview
+    SIGN SPEAK is a real-time sign language translation system that bridges communication between 
+    deaf/hard-of-hearing individuals and hearing people using computer vision and deep learning.
+    
+    ### Technical Stack
+    - **Computer Vision:** MediaPipe Tasks (Face, Pose, Hand Landmarkers)
+    - **Deep Learning:** TensorFlow/Keras - 1D-CNN + Transformer Architecture
+    - **Frontend:** Streamlit for real-time web interface
+    - **Audio:** pyttsx3 for text-to-speech output
+    
+    ### Model Architecture
+    - **Input:** 64-frame sequences of 543 landmarks (x, y, z + velocity + acceleration)
+    - **Backbone:** 3× Conv1D blocks + 2× Transformer blocks (192 dim, 4 heads)
+    - **Output:** 250-class classification (ASL Citizen dataset)
+    - **Preprocessing:** NaN-robust normalization, temporal differencing
+    
+    ### Landmark Coverage (543 total)
+    - **Face:** 468 landmarks (lips, eyes, nose, contours)
+    - **Hands:** 21 × 2 = 42 landmarks (left + right)
+    - **Pose:** 33 landmarks (upper body keypoints)
+    
+    ### Dataset
+    Trained on the **ASL Citizen** dataset — a large-scale American Sign Language dataset 
+    containing 250 distinct signs performed by diverse signers.
+    """)
+
+elif st.session_state["page"] == "recognize":
+    # ==================== LIVE RECOGNITION ====================
+    # Sidebar Configuration
+    st.sidebar.title("⚙️ System Status")
+    if model is not None and face_lm is not None:
+        st.sidebar.success("✅ Transformer Model & MediaPipe Tasks Loaded")
+    else:
+        st.sidebar.error("❌ Component Initialization Failed")
+
+    st.sidebar.markdown(f"**Loaded Sign Classes:** {len(index_to_label)}")
+    confidence_threshold = st.sidebar.slider("Confidence Threshold", min_value=0.1, max_value=0.9, value=0.35, step=0.05)
+    
+    if st.sidebar.button("🏠 Back to Landing Page"):
+        st.session_state["page"] = "landing"
+        st.session_state["run_webcam"] = False
+        st.rerun()
+
+    # Header UI
+    st.title("🤟 SIGN SPEAK - Real-Time Transformer Sign Language Translation")
+    st.markdown("Translating sequence-based hand & body gestures into spoken audio & text using a **1D-CNN Transformer** model.")
+
+    # Session State Initialization
 if "run_webcam" not in st.session_state:
     st.session_state["run_webcam"] = False
 if "detected_word" not in st.session_state:
@@ -481,3 +622,5 @@ if st.session_state["run_webcam"]:
         cap.release()
         cv2.destroyAllWindows()
         frame_window.empty()
+
+# End of recognize page
