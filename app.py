@@ -60,7 +60,12 @@ NUM_CLASSES = 250
 PAD = 0.0
 
 def tf_nan_mean(x, axis=0, keepdims=False):
-    return tf.reduce_sum(tf.where(tf.math.is_nan(x), tf.zeros_like(x), x), axis=axis, keepdims=keepdims) / tf.reduce_sum(tf.where(tf.math.is_nan(x), tf.zeros_like(x), tf.ones_like(x)), axis=axis, keepdims=keepdims)
+    # Compute mean ignoring NaNs safely.
+    mask = tf.math.is_nan(x)
+    clean = tf.where(mask, tf.zeros_like(x), x)
+    sum_ = tf.reduce_sum(clean, axis=axis, keepdims=keepdims)
+    count = tf.reduce_sum(tf.cast(tf.logical_not(mask), x.dtype), axis=axis, keepdims=keepdims)
+    return tf.where(count > 0, sum_ / count, tf.zeros_like(sum_))
 
 def tf_nan_std(x, center=None, axis=0, keepdims=False):
     if center is None:
