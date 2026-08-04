@@ -116,8 +116,8 @@ class SignLanguageDataset(Dataset):
         return x, y
 
 
-def get_dataloaders(dataset='nslt100', batch_size=32, max_len=64, 
-                    num_workers=4, oversample=True, min_samples_per_class=2):
+def get_dataloaders(dataset='nslt100', batch_size=64, max_len=64, 
+                    num_workers=2, persistent_workers=True, oversample=True, min_samples_per_class=2):
     """Create train/val/test dataloaders"""
     
     train_ds = SignLanguageDataset('train', max_len, dataset, 
@@ -136,12 +136,18 @@ def get_dataloaders(dataset='nslt100', batch_size=32, max_len=64,
         )
         shuffle = False  # sampler handles shuffling
     
+    # Use persistent_workers only if num_workers > 0
+    use_persistent = persistent_workers and num_workers > 0
+    
     train_loader = DataLoader(train_ds, batch_size=batch_size, 
                               sampler=train_sampler, shuffle=shuffle,
-                              num_workers=num_workers, pin_memory=True)
+                              num_workers=num_workers, pin_memory=True,
+                              persistent_workers=use_persistent)
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False,
-                            num_workers=num_workers, pin_memory=True)
+                            num_workers=num_workers, pin_memory=True,
+                            persistent_workers=use_persistent)
     test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False,
-                             num_workers=num_workers, pin_memory=True)
+                             num_workers=num_workers, pin_memory=True,
+                             persistent_workers=use_persistent)
     
     return train_loader, val_loader, test_loader, train_ds.num_classes

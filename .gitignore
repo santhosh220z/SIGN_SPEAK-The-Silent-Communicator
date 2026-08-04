@@ -1,12 +1,38 @@
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+dist/
+build/
 
-node_modules/
+# Virtual environments
+venv/
+venv310/
+env/
+ENV/
 
+# Dataset
 dataset/
 
-.opencode/
-
+# Model checkpoints
 MODEL/checkpoints/
 
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
 *.log
+train_*.log
+
+# Graphify cache
+graphify-out/cache/

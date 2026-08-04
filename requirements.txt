@@ -1,7 +1,18 @@
-opencv-python
-numpy
-streamlit
-pyttsx3
-mediapipe
-tensorflow
-h5py
+# Core ML frameworks
+torch>=2.6.0
+torchvision>=0.21.0
+torchaudio>=2.6.0
+
+# Original dependencies
+opencv-python>=4.10.0
+numpy>=1.26.0
+streamlit>=1.38.0
+pyttsx3>=2.90
+mediapipe>=0.10.14
+tensorflow>=2.20.0
+h5py>=3.10.0
+
+# Training extras
+tensorboard>=2.21.0
+tqdm>=4.66.0
+scikit-learn>=1.5.0

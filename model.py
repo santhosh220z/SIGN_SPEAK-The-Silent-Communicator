@@ -7,13 +7,15 @@ class PreprocessLayer(nn.Module):
     """
     PyTorch port of the TF Preprocess layer.
     Input: (B, T, 543, 3) - keypoints with NaN for missing
-    Output: (B, T, 543*6) - normalized x,y + velocity + acceleration
+    Output: dict with:
+        - 'appearance': (B, T, D_app) - static x,y features
+        - 'motion': (B, T, D_mot) - velocity + acceleration features
     """
     def __init__(self, point_landmarks=None, max_len=64):
         super().__init__()
         self.max_len = max_len
         
-        # Default: same 90 landmarks as TF model (LIP + LHAND + RHAND + NOSE + REYE + LEYE)
+        # Default: LIP + LHAND + RHAND + NOSE + REYE + LEYE = 118 landmarks
         if point_landmarks is None:
             LIP = [0, 61, 185, 40, 39, 37, 267, 269, 270, 409, 291, 146, 91, 181, 84, 17, 
                    314, 405, 321, 375, 78, 191, 80, 81, 82, 13, 312, 311, 310, 415, 95, 
@@ -27,9 +29,10 @@ class PreprocessLayer(nn.Module):
         
         self.register_buffer('point_landmarks', torch.tensor(point_landmarks, dtype=torch.long))
         self.num_points = len(point_landmarks)
+        self.app_dim = self.num_points * 2      # x, y
+        self.mot_dim = self.num_points * 4      # dx, dy, dx2, dy2
     
     def nan_mean(self, x, dim, keepdim=False):
-        """Mean ignoring NaNs"""
         mask = torch.isnan(x)
         x_clean = torch.where(mask, torch.zeros_like(x), x)
         count = (~mask).float().sum(dim=dim, keepdim=keepdim)
@@ -37,83 +40,60 @@ class PreprocessLayer(nn.Module):
         return torch.where(count > 0, sum_ / count, torch.zeros_like(sum_))
     
     def nan_std(self, x, center=None, dim=None, keepdim=False):
-        """Std ignoring NaNs"""
         if center is None:
             center = self.nan_mean(x, dim=dim, keepdim=True)
         d = x - center
         return torch.sqrt(self.nan_mean(d * d, dim=dim, keepdim=keepdim))
     
     def forward(self, x):
-        """
-        x: (B, T, 543, 3) or (T, 543, 3)
-        """
-        # Handle missing batch dim
         if x.dim() == 3:
-            x = x.unsqueeze(0)  # (1, T, 543, 3)
+            x = x.unsqueeze(0)
         
         B, T, N, C = x.shape
         
-        # Select relevant landmarks first
-        x = x[:, :, self.point_landmarks, :]  # (B, T, 90, 3)
+        # Select landmarks
+        x = x[:, :, self.point_landmarks, :]  # (B, T, 118, 3)
         
-        # Use nose landmark (index 17 in original) as reference for normalization
-        # Find where nose_idx (17) is in our selected landmarks
-        nose_original_idx = 17
-        nose_in_selected = (self.point_landmarks == nose_original_idx).nonzero()
-        if len(nose_in_selected) > 0:
-            nose_idx_in_selected = nose_in_selected.item()
-        else:
-            # If nose not in selected landmarks, use first landmark as reference
-            nose_idx_in_selected = 0
+        # Reference normalization (nose tip = idx 17 in original)
+        nose_orig = 17
+        nose_in_sel = (self.point_landmarks == nose_orig).nonzero()
+        nose_idx = nose_in_sel.item() if len(nose_in_sel) > 0 else 0
         
-        # Reference point for normalization (mean of reference landmark across time)
-        # Gather reference landmark across all frames
-        ref_coords = x[:, :, nose_idx_in_selected, :]  # (B, T, 3)
-        ref_mean = self.nan_mean(ref_coords, dim=[1, 2], keepdim=True)  # (B, 1, 1)
-        ref_mean = ref_mean.unsqueeze(-1)  # (B, 1, 1, 1)
-        ref_mean = torch.where(torch.isnan(ref_mean), 
-                               torch.tensor(0.5, device=x.device, dtype=x.dtype), 
-                               ref_mean)
+        ref_coords = x[:, :, nose_idx, :]  # (B, T, 3)
+        ref_mean = self.nan_mean(ref_coords, dim=[1, 2], keepdim=True).unsqueeze(-1)  # (B, 1, 1, 1)
+        ref_mean = torch.where(torch.isnan(ref_mean), torch.tensor(0.5, device=x.device, dtype=x.dtype), ref_mean)
         
-        # Normalize
-        std = self.nan_std(x, center=ref_mean, dim=[1, 2], keepdim=True)  # (B, 1, 1, 3)
+        std = self.nan_std(x, center=ref_mean, dim=[1, 2], keepdim=True)
         x = (x - ref_mean) / (std + 1e-6)
         
-        # Truncate to max_len
         if self.max_len is not None and T > self.max_len:
             x = x[:, :self.max_len]
-        
         T = x.shape[1]
         
-        # Keep only x, y coordinates (drop z)
-        x = x[..., :2]  # (B, T, 90, 2)
+        # Split appearance (x,y) and motion (velocity, acceleration)
+        xy = x[..., :2]  # (B, T, 118, 2)
         
-        # Compute velocity (dx) and acceleration (dx2)
-        # dx: frame t+1 - frame t
-        dx = torch.zeros_like(x)
+        # Velocity
+        dx = torch.zeros_like(xy)
         if T > 1:
-            dx[:, :-1] = x[:, 1:] - x[:, :-1]
+            dx[:, :-1] = xy[:, 1:] - xy[:, :-1]
         
-        # dx2: frame t+2 - frame t
-        dx2 = torch.zeros_like(x)
+        # Acceleration
+        dx2 = torch.zeros_like(xy)
         if T > 2:
-            dx2[:, :-2] = x[:, 2:] - x[:, :-2]
+            dx2[:, :-2] = xy[:, 2:] - xy[:, :-2]
         
-        # Reshape and concatenate: (B, T, 90*2 * 3) = (B, T, 540)
-        x_flat = x.reshape(B, T, -1)          # (B, T, 180)
-        dx_flat = dx.reshape(B, T, -1)        # (B, T, 180)
-        dx2_flat = dx2.reshape(B, T, -1)      # (B, T, 180)
+        # Flatten
+        app = xy.reshape(B, T, -1)              # (B, T, 236)
+        mot = torch.cat([dx, dx2], dim=-1).reshape(B, T, -1)  # (B, T, 472)
         
-        x = torch.cat([x_flat, dx_flat, dx2_flat], dim=-1)  # (B, T, 540)
+        app = torch.where(torch.isnan(app), torch.zeros_like(app), app)
+        mot = torch.where(torch.isnan(mot), torch.zeros_like(mot), mot)
         
-        # Replace NaN with 0
-        x = torch.where(torch.isnan(x), torch.zeros_like(x), x)
-        
-        return x
+        return {'appearance': app, 'motion': mot, 'xy': xy, 'dx': dx, 'dx2': dx2}
 
 
 class ECA(nn.Module):
-    """Efficient Channel Attention"""
     def __init__(self, channels, kernel_size=5):
         super().__init__()
         self.conv = nn.Conv1d(1, 1, kernel_size=kernel_size, padding=kernel_size//2, bias=False)
@@ -122,22 +102,19 @@ class ECA(nn.Module):
     def forward(self, x):
         # x: (B, T, C)
         y = x.mean(dim=1, keepdim=True)  # (B, 1, C)
-        y = self.conv(y)  # (B, 1, C)
-        y = self.sigmoid(y)  # (B, 1, C)
+        y = self.conv(y)
+        y = self.sigmoid(y)
         return x * y
 
 
 class CausalDWConv1D(nn.Module):
-    """Causal Depthwise Conv1D"""
     def __init__(self, channels, kernel_size=17, dilation=1):
         super().__init__()
         self.padding = (kernel_size - 1) * dilation
-        self.dw_conv = nn.Conv1d(channels, channels, kernel_size, 
-                                  groups=channels, dilation=dilation, 
-                                  padding=0, bias=False)
+        self.dw_conv = nn.Conv1d(channels, channels, kernel_size,
+                                  groups=channels, dilation=dilation, padding=0, bias=False)
     
     def forward(self, x):
-        # x: (B, T, C) -> (B, C, T)
         x = x.transpose(1, 2)
         x = F.pad(x, (self.padding, 0))
         x = self.dw_conv(x)
@@ -146,46 +123,88 @@ class CausalDWConv1D(nn.Module):
 
 
 class Conv1DBlock(nn.Module):
-    """MBConv-style block with ECA"""
     def __init__(self, channels, kernel_size=17, drop_rate=0.2, expand_ratio=2):
         super().__init__()
         expanded = channels * expand_ratio
-        
         self.expand = nn.Linear(channels, expanded)
         self.dwconv = CausalDWConv1D(expanded, kernel_size)
         self.bn = nn.BatchNorm1d(expanded)
         self.eca = ECA(expanded)
         self.project = nn.Linear(expanded, channels)
         self.dropout = nn.Dropout(drop_rate) if drop_rate > 0 else nn.Identity()
-        self.act = nn.SiLU()  # Swish
-        
+        self.act = nn.SiLU()
         self.use_skip = True
     
     def forward(self, x):
-        # x: (B, T, C)
         skip = x
-        
-        x = self.expand(x)
-        x = self.act(x)
+        x = self.act(self.expand(x))
         x = self.dwconv(x)
-        x = x.transpose(1, 2)  # (B, C, T) for BatchNorm1d
+        x = x.transpose(1, 2)
         x = self.bn(x)
-        x = x.transpose(1, 2)  # (B, T, C)
+        x = x.transpose(1, 2)
         x = self.eca(x)
         x = self.project(x)
         x = self.dropout(x)
-        
         if self.use_skip:
             x = x + skip
         return x
 
 
-class TransformerBlock(nn.Module):
-    """Transformer block with MHSA + FFN"""
-    def __init__(self, dim=256, num_heads=4, expand=4, attn_dropout=0.2, drop_rate=0.2):
+class MotionGatedAttention(nn.Module):
+    """Attention modulated by per-frame motion magnitude"""
+    def __init__(self, dim, num_heads=4, dropout=0.1):
         super().__init__()
+        self.dim = dim
+        self.num_heads = num_heads
+        self.head_dim = dim // num_heads
+        self.scale = self.head_dim ** -0.5
+        
+        self.qkv = nn.Linear(dim, dim * 3)
+        self.proj = nn.Linear(dim, dim)
+        self.dropout = nn.Dropout(dropout)
+        
+        # Motion gate: predicts per-frame attention scaling
+        self.motion_gate = nn.Sequential(
+            nn.Linear(dim, dim // 4),
+            nn.SiLU(),
+            nn.Linear(dim // 4, num_heads),
+            nn.Sigmoid()
+        )
+    
+    def forward(self, x, motion_feat=None):
+        B, T, C = x.shape
+        
+        # Standard MHSA
+        qkv = self.qkv(x).reshape(B, T, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
+        q, k, v = qkv[0], qkv[1], qkv[2]  # (B, H, T, D)
+        
+        attn = (q @ k.transpose(-2, -1)) * self.scale  # (B, H, T, T)
+        
+        # Apply motion gating if provided
+        if motion_feat is not None:
+            # motion_feat: (B, T, D_mot) -> project to per-frame, per-head gates
+            gate = self.motion_gate(motion_feat)  # (B, T, H)
+            gate = gate.permute(0, 2, 1).unsqueeze(-1)  # (B, H, T, 1)
+            # Modulate attention scores: frames with high motion get higher attention
+            attn = attn * (1.0 + gate)  # (B, H, T, T) * (B, H, T, 1) -> broadcast
+        
+        attn = F.softmax(attn, dim=-1)
+        attn = self.dropout(attn)
+        
+        x = (attn @ v).transpose(1, 2).reshape(B, T, C)
+        x = self.proj(x)
+        return x
+
+
+class TransformerBlock(nn.Module):
+    def __init__(self, dim=256, num_heads=4, expand=4, attn_dropout=0.2, drop_rate=0.2, use_motion_gate=False):
+        super().__init__()
+        self.use_motion_gate = use_motion_gate
         self.norm1 = nn.LayerNorm(dim, eps=1e-6)
-        self.attn = nn.MultiheadAttention(dim, num_heads, dropout=attn_dropout, batch_first=True)
+        if use_motion_gate:
+            self.attn = MotionGatedAttention(dim, num_heads, attn_dropout)
+        else:
+            self.attn = nn.MultiheadAttention(dim, num_heads, dropout=attn_dropout, batch_first=True)
         self.drop1 = nn.Dropout(drop_rate)
         
         self.norm2 = nn.LayerNorm(dim, eps=1e-6)
@@ -196,16 +215,16 @@ class TransformerBlock(nn.Module):
             nn.Dropout(drop_rate)
         )
     
-    def forward(self, x, mask=None):
-        # x: (B, T, C)
-        # Self-attention
+    def forward(self, x, motion_feat=None):
         residual = x
         x = self.norm1(x)
-        x, _ = self.attn(x, x, x, key_padding_mask=mask)
+        if self.use_motion_gate:
+            x = self.attn(x, motion_feat)
+        else:
+            x, _ = self.attn(x, x, x)
         x = self.drop1(x)
         x = x + residual
         
-        # FFN
         residual = x
         x = self.norm2(x)
         x = self.ffn(x)
@@ -214,7 +233,6 @@ class TransformerBlock(nn.Module):
 
 
 class LateDropout(nn.Module):
-    """Dropout that starts after certain steps"""
     def __init__(self, rate, start_step=0):
         super().__init__()
         self.rate = rate
@@ -232,33 +250,35 @@ class LateDropout(nn.Module):
 
 class SignTransformer(nn.Module):
     """
-    Sign Language Transformer matching the TF/Keras architecture:
-    - Preprocess layer (NaN-robust normalization + temporal diffs)
-    - Stem: Dense(192) + BN
-    - 3x Conv1DBlock
-    - TransformerBlock
-    - 3x Conv1DBlock
-    - TransformerBlock
-    - GlobalAvgPool + LateDropout(0.8) + Classifier
+    Two-stream Sign Language Transformer:
+    - Appearance stream: static handshape/pose
+    - Motion stream: velocity + acceleration
+    - Motion-gated attention in 2nd transformer
+    - Contrastive head for metric learning
     """
-    def __init__(self, num_classes=100, dim=192, max_len=64, dropout_step=0):
+    def __init__(self, num_classes=100, dim=192, max_len=64, dropout_step=0, 
+                 use_motion_gate=True, contrastive_dim=128):
         super().__init__()
         self.preprocess = PreprocessLayer(max_len=max_len)
-        # After preprocess: (B, T, num_points*6)
-        num_features = self.preprocess.num_points * 6
+        self.use_motion_gate = use_motion_gate
         
-        self.stem = nn.Linear(num_features, dim)
+        # Two-stream stems
+        self.app_stem = nn.Linear(self.preprocess.app_dim, dim)
+        self.mot_stem = nn.Linear(self.preprocess.mot_dim, dim)
         self.stem_bn = nn.BatchNorm1d(dim)
         self.act = nn.SiLU()
         
-        # First 3 Conv1DBlocks
+        # Stream fusion
+        self.fusion = nn.Linear(dim * 2, dim)
+        
+        # First 3 Conv1DBlocks (shared)
         self.conv_blocks1 = nn.Sequential(
             Conv1DBlock(dim, drop_rate=0.2),
             Conv1DBlock(dim, drop_rate=0.2),
             Conv1DBlock(dim, drop_rate=0.2),
         )
         
-        # First TransformerBlock
+        # First TransformerBlock (no motion gate)
         self.transformer1 = TransformerBlock(dim, num_heads=4, expand=2, drop_rate=0.2)
         
         # Second 3 Conv1DBlocks
@@ -268,60 +288,82 @@ class SignTransformer(nn.Module):
             Conv1DBlock(dim, drop_rate=0.2),
         )
         
-        # Second TransformerBlock
-        self.transformer2 = TransformerBlock(dim, num_heads=4, expand=2, drop_rate=0.2)
+        # Second TransformerBlock (WITH motion gate)
+        self.transformer2 = TransformerBlock(
+            dim, num_heads=4, expand=2, drop_rate=0.2, 
+            use_motion_gate=use_motion_gate
+        )
         
-        # Top conv + pooling
+        # Output heads
         self.top_conv = nn.Linear(dim, dim * 2)
         self.global_pool = nn.AdaptiveAvgPool1d(1)
         self.late_dropout = LateDropout(0.8, start_step=dropout_step)
         self.classifier = nn.Linear(dim * 2, num_classes)
-    
-    def forward(self, x):
-        # x: (B, T, 543, 3) or (T, 543, 3)
-        x = self.preprocess(x)  # (B, T, 540)
         
-        # Stem
-        x = self.stem(x)  # (B, T, dim)
-        x = x.transpose(1, 2)  # (B, dim, T) for BatchNorm1d
+        # Contrastive head (for metric learning)
+        self.contrastive_proj = nn.Sequential(
+            nn.Linear(dim * 2, contrastive_dim),
+            nn.LayerNorm(contrastive_dim)
+        )
+    
+    def forward(self, x, return_embedding=False):
+        # x: (B, T, 543, 3) or (T, 543, 3)
+        feats = self.preprocess(x)  # dict with 'appearance', 'motion'
+        app = feats['appearance']   # (B, T, 236)
+        mot = feats['motion']       # (B, T, 472)
+        
+        # Two-stream encoding
+        app = self.act(self.app_stem(app))
+        mot = self.act(self.mot_stem(mot))
+        
+        # Fuse
+        x = torch.cat([app, mot], dim=-1)  # (B, T, 2*dim)
+        x = self.fusion(x)                 # (B, T, dim)
+        x = x.transpose(1, 2)
         x = self.stem_bn(x)
-        x = x.transpose(1, 2)  # (B, T, dim)
-        x = self.act(x)
+        x = x.transpose(1, 2)
         
         # First conv blocks
         x = self.conv_blocks1(x)
         
-        # First transformer
+        # First transformer (no motion gate)
         x = self.transformer1(x)
         
         # Second conv blocks
         x = self.conv_blocks2(x)
         
-        # Second transformer
-        x = self.transformer2(x)
+        # Second transformer (WITH motion gate)
+        x = self.transformer2(x, motion_feat=mot)
         
-        # Top conv
-        x = self.top_conv(x)  # (B, T, dim*2)
-        x = x.transpose(1, 2)  # (B, dim*2, T)
-        x = self.global_pool(x).squeeze(-1)  # (B, dim*2)
+        # Pooling
+        x = self.top_conv(x)          # (B, T, 2*dim)
+        x = x.transpose(1, 2)         # (B, 2*dim, T)
+        x = self.global_pool(x).squeeze(-1)  # (B, 2*dim)
+        
+        # Contrastive embedding
+        emb = self.contrastive_proj(x)  # (B, contrastive_dim)
         
         x = self.late_dropout(x)
         logits = self.classifier(x)
+        
+        if return_embedding:
+            return logits, emb
         return logits
+    
+    def get_embedding(self, x):
+        """Get contrastive embedding for a batch"""
+        _, emb = self.forward(x, return_embedding=True)
+        return F.normalize(emb, p=2, dim=1)
 
 
 def load_tf_weights(model, tf_model_path):
-    """Load weights from TF/Keras model (requires manual mapping)"""
-    # This would require h5py to read the Keras model
-    # For now, train from scratch
     pass
 
 
 if __name__ == '__main__':
-    # Quick test
-    model = SignTransformer(num_classes=100, dim=192)
+    model = SignTransformer(num_classes=100, dim=192, use_motion_gate=True)
     x = torch.randn(2, 64, 543, 3)
-    x[0, :, 100:, :] = float('nan')  # Simulate missing landmarks
-    logits = model(x)
-    print(f'Output shape: {logits.shape}')  # Should be (2, 100)
+    x[0, :, 100:, :] = float('nan')
+    logits, emb = model(x, return_embedding=True)
+    print(f'Logits: {logits.shape}, Embedding: {emb.shape}')
     print(f'Parameters: {sum(p.numel() for p in model.parameters()):,}')

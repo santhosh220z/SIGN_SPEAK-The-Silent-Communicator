@@ -2,6 +2,8 @@
 let currentStream = null;
 let animationFrameId = null;
 let faceLandmarker = null;
+let handLandmarker = null;
+let poseLandmarker = null;
 let frameCount = 0;
 let lastFpsTime = performance.now();
 let lastSpokenText = '';
@@ -84,12 +86,13 @@ function initUIControls() {
 async function initMediaPipe() {
     try {
         const vision = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0');
-        const { FaceLandmarker, FilesetResolver } = vision;
+        const { FaceLandmarker, HandLandmarker, PoseLandmarker, FilesetResolver } = vision;
 
         const visionWrapper = await FilesetResolver.forVisionTasks(
             'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm'
         );
 
+        // Face Landmarker (468 landmarks)
         faceLandmarker = await FaceLandmarker.createFromOptions(visionWrapper, {
             baseOptions: {
                 modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
@@ -99,7 +102,27 @@ async function initMediaPipe() {
             numFaces: 1
         });
 
-        console.log("MediaPipe FaceLandmarker loaded successfully.");
+        // Hand Landmarker (21 landmarks per hand = 42 total)
+        handLandmarker = await HandLandmarker.createFromOptions(visionWrapper, {
+            baseOptions: {
+                modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
+                delegate: 'GPU'
+            },
+            runningMode: 'VIDEO',
+            numHands: 2
+        });
+
+        // Pose Landmarker (33 landmarks for body/arms)
+        poseLandmarker = await PoseLandmarker.createFromOptions(visionWrapper, {
+            baseOptions: {
+                modelAssetPath: `https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task`,
+                delegate: 'GPU'
+            },
+            runningMode: 'VIDEO',
+            numPoses: 1
+        });
+
+        console.log("MediaPipe Face, Hand, and Pose Landmarkers loaded successfully.");
     } catch (err) {
         console.error("Failed to initialize MediaPipe:", err);
     }
@@ -182,12 +205,37 @@ function startDetectionLoop(video, canvas) {
             const showMesh = document.getElementById('toggle-landmarks')?.checked ?? true;
             let totalLandmarks = 0;
 
+            // Face Detection (468 landmarks)
             if (faceLandmarker) {
                 const result = faceLandmarker.detectForVideo(video, now);
                 if (result && result.faceLandmarks && result.faceLandmarks.length > 0) {
-                    totalLandmarks = result.faceLandmarks[0].length;
+                    totalLandmarks += result.faceLandmarks[0].length;
                     if (showMesh) {
-                        drawMeshOverlay(ctx, result.faceLandmarks[0], canvas.width, canvas.height);
+                        drawFaceMesh(ctx, result.faceLandmarks[0], canvas.width, canvas.height);
+                    }
+                }
+            }
+
+            // Hand Detection (21 landmarks per hand = 42 total)
+            if (handLandmarker) {
+                const result = handLandmarker.detectForVideo(video, now);
+                if (result && result.handLandmarks && result.handLandmarks.length > 0) {
+                    result.handLandmarks.forEach(hand => {
+                        totalLandmarks += hand.length;
+                        if (showMesh) {
+                            drawHandMesh(ctx, hand, canvas.width, canvas.height);
+                        }
+                    });
+                }
+            }
+
+            // Pose Detection (33 landmarks for body/arms)
+            if (poseLandmarker) {
+                const result = poseLandmarker.detectForVideo(video, now);
+                if (result && result.poseLandmarks && result.poseLandmarks.length > 0) {
+                    totalLandmarks += result.poseLandmarks[0].length;
+                    if (showMesh) {
+                        drawPoseMesh(ctx, result.poseLandmarks[0], canvas.width, canvas.height);
                     }
                 }
             }
@@ -225,8 +273,8 @@ function startDetectionLoop(video, canvas) {
     render();
 }
 
-// Draw Glowing Landmark Overlay
-function drawMeshOverlay(ctx, landmarks, width, height) {
+// Draw Face Mesh Overlay (468 landmarks)
+function drawFaceMesh(ctx, landmarks, width, height) {
     const FACE_OVAL = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109];
     const LIPS = [61, 146, 91, 181, 84, 17, 314, 405, 320, 307, 375, 321, 308, 324, 318];
     const LEFT_EYE = [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246];
@@ -258,6 +306,96 @@ function drawMeshOverlay(ctx, landmarks, width, height) {
     drawGroup(LIPS, 'rgba(239, 68, 68, 0.8)', '#ef4444');
     drawGroup(LEFT_EYE, 'rgba(56, 189, 248, 0.85)', '#38bdf8');
     drawGroup(RIGHT_EYE, 'rgba(56, 189, 248, 0.85)', '#38bdf8');
+}
+
+// Draw Hand Mesh Overlay (21 landmarks per hand)
+function drawHandMesh(ctx, landmarks, width, height) {
+    // Hand connections from MediaPipe
+    const HAND_CONNECTIONS = [
+        [0, 1], [1, 2], [2, 3], [3, 4],        // Thumb
+        [0, 5], [5, 6], [6, 7], [7, 8],        // Index finger
+        [5, 9], [9, 10], [10, 11], [11, 12],   // Middle finger
+        [9, 13], [13, 14], [14, 15], [15, 16], // Ring finger
+        [13, 17], [17, 18], [18, 19], [19, 20], // Pinky
+        [0, 17]                                 // Palm
+    ];
+
+    // Draw connections
+    ctx.strokeStyle = 'rgba(255, 165, 0, 0.8)';
+    ctx.lineWidth = 2;
+    HAND_CONNECTIONS.forEach(([start, end]) => {
+        const p1 = landmarks[start];
+        const p2 = landmarks[end];
+        if (p1 && p2) {
+            ctx.beginPath();
+            ctx.moveTo(p1.x * width, p1.y * height);
+            ctx.lineTo(p2.x * width, p2.y * height);
+            ctx.stroke();
+        }
+    });
+
+    // Draw landmarks
+    landmarks.forEach((point, i) => {
+        ctx.beginPath();
+        ctx.arc(point.x * width, point.y * height, 4, 0, Math.PI * 2);
+        ctx.fillStyle = i === 0 ? '#ff6b35' : '#ffa500';
+        ctx.fill();
+        
+        // Highlight fingertips
+        if ([4, 8, 12, 16, 20].includes(i)) {
+            ctx.beginPath();
+            ctx.arc(point.x * width, point.y * height, 6, 0, Math.PI * 2);
+            ctx.strokeStyle = '#ff6b35';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+    });
+}
+
+// Draw Pose Mesh Overlay (33 landmarks - focus on arms and upper body)
+function drawPoseMesh(ctx, landmarks, width, height) {
+    // Key pose connections for arms and upper body
+    const POSE_CONNECTIONS = [
+        // Arms
+        [11, 13], [13, 15], [15, 17], [15, 19], [15, 21], [17, 19],  // Left arm
+        [12, 14], [14, 16], [16, 18], [16, 20], [16, 22], [18, 20],  // Right arm
+        // Shoulders
+        [11, 12],
+        // Torso (for reference)
+        [11, 23], [12, 24], [23, 24]
+    ];
+
+    // Draw connections
+    ctx.strokeStyle = 'rgba(139, 92, 246, 0.7)';
+    ctx.lineWidth = 3;
+    POSE_CONNECTIONS.forEach(([start, end]) => {
+        const p1 = landmarks[start];
+        const p2 = landmarks[end];
+        if (p1 && p2 && p1.visibility > 0.5 && p2.visibility > 0.5) {
+            ctx.beginPath();
+            ctx.moveTo(p1.x * width, p1.y * height);
+            ctx.lineTo(p2.x * width, p2.y * height);
+            ctx.stroke();
+        }
+    });
+
+    // Draw key landmarks (shoulders, elbows, wrists)
+    const KEY_POINTS = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
+    KEY_POINTS.forEach(i => {
+        const point = landmarks[i];
+        if (point && point.visibility > 0.5) {
+            ctx.beginPath();
+            ctx.arc(point.x * width, point.y * height, 6, 0, Math.PI * 2);
+            ctx.fillStyle = '#8b5cf6';
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(point.x * width, point.y * height, 9, 0, Math.PI * 2);
+            ctx.strokeStyle = '#a855f7';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+    });
 }
 
 // Update Prediction Display & Meter
