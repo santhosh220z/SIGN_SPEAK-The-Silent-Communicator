@@ -140,7 +140,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Constants
-MODEL_DIR = Path("MODEL/checkpoints/nslt100_dim192")
+_CKPT_CANDIDATES = [
+    Path("MODEL/checkpoints/slt100_dim192"),
+    Path("MODEL/checkpoints/nslt100_dim192"),
+]
+MODEL_DIR = next((p for p in _CKPT_CANDIDATES if (p / "best_model.pt").exists()), _CKPT_CANDIDATES[0])
 BEST_MODEL = MODEL_DIR / "best_model.pt"
 MAX_FRAMES = 64
 
