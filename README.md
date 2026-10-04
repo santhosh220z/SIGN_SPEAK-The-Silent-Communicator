@@ -6,6 +6,8 @@ Real-time Transformer-based sign language translation using MediaPipe landmarks 
 
 - Python 3.10+
 - Webcam
+- MediaPipe task bundles (`face_landmarker.task`, `hand_landmarker.task`, `pose_landmarker.task`) in the repo root
+- YOLO hand-detector weights (`yolo11s.pt`) for the inference pipeline
 
 ## Installation
 
@@ -15,14 +17,18 @@ pip install -r requirements.txt
 
 ## Model
 
-Place your pre-trained Transformer model weights and label map in the `MODEL/` directory:
-- `MODEL/Transformer.weights.h5` - Model weights
-- `MODEL/sign_to_prediction_index_map.json` - Label mapping (250 classes for ASL Citizen dataset)
+Trained PyTorch checkpoints live in `MODEL/checkpoints/<run_name>/`:
+
+- `best_model.pt` - best validation checkpoint
+- `latest_model.pt` - most recent checkpoint
+
+Each checkpoint stores `{'model': state_dict, 'args': {...}, 'classes': [...]}`.
+Load it with `torch.load(...)` + `SignTransformer` (see `app_streamlit.py` / `inference_pipeline.py`).
 
 ## Usage
 
 ```bash
-streamlit run app.py
+streamlit run app_streamlit.py
 ```
 
 ## Controls
@@ -35,19 +41,33 @@ streamlit run app.py
 ## Architecture
 
 - **MediaPipe Tasks**: Face, Pose, and Hand landmark detection (543 landmarks)
-- **Preprocessing**: Normalization, velocity/acceleration features (6 channels per landmark)
-- **Model**: 1D-CNN + Transformer architecture (192 dim, 4 heads, 2 blocks)
-- **Output**: 250-class classification with softmax probabilities
+- **Preprocessing**: Nose-tip reference normalization, velocity/acceleration features (6 channels per landmark)
+- **Model**: Two-stream 1D-CNN + Transformer (192 dim, 4 heads, 2 blocks), motion-gated attention
+- **Output**: 100-class classification (NSLT-100) with softmax probabilities
 - **TTS**: pyttsx3 for spoken translation
 
 ## Project Structure
 
 ```
 SIGN_SPEAK-The-Silent-Communicator/
-├── app.py                      # Main Streamlit application
-├── requirements.txt            # Python dependencies
-├── MODEL/
-│   ├── Transformer.weights.h5  # Pre-trained model weights
-│   └── sign_to_prediction_index_map.json  # Label map (250 classes)
-└── *.task                      # MediaPipe model files
+├── app_streamlit.py            # Main Streamlit application
+├── model.py                    # SignTransformer (two-stream + motion gate)
+├── dual_head_model.py          # Static + action dual-head variant
+├── train.py                    # Training loop (CE + triplet + contrastive)
+├── train_dataset.py            # Keypoint dataset / dataloaders
+├── inference_pipeline.py       # YOLO + keypoints + dual-head runtime
+├── yolo_hand_detector.py       # YOLO hand region detector
+├── collect_static_gestures.py  # Static gesture data collection
+├── extract_keypoints_*.py      # Keypoint extraction variants
+├── requirements.txt
+├── MODEL/checkpoints/          # Trained checkpoints
+├── dataset/                    # WLASL/NSLT metadata + extracted keypoints
+└── *.task                      # MediaPipe model bundles
+```
+
+## Development
+
+```bash
+pip install pytest
+python -m pytest tests/
 ```
