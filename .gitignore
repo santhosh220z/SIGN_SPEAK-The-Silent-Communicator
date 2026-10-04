@@ -33,6 +33,21 @@ Thumbs.db
 # Logs
 *.log
 train_*.log
+train_log.txt
+
+# Node
+node_modules/
+
+# MediaPipe task binaries (download locally)
+*.task
+
+# YOLO weights
+yolo11s.pt
+
+# Resume artifacts
+resume.html
+resume.pdf
+resume_preview.png
 
 # Graphify cache
 graphify-out/cache/
