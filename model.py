@@ -54,8 +54,8 @@ class PreprocessLayer(nn.Module):
         # Select landmarks
         x = x[:, :, self.point_landmarks, :]  # (B, T, 118, 3)
         
-        # Reference normalization (nose tip = idx 17 in original)
-        nose_orig = 17
+        # Reference normalization: nose tip landmark (MediaPipe index 1)
+        nose_orig = 1
         nose_in_sel = (self.point_landmarks == nose_orig).nonzero()
         nose_idx = nose_in_sel.item() if len(nose_in_sel) > 0 else 0
         
@@ -257,7 +257,7 @@ class SignTransformer(nn.Module):
     - Contrastive head for metric learning
     """
     def __init__(self, num_classes=100, dim=192, max_len=64, dropout_step=0, 
-                 use_motion_gate=True, contrastive_dim=128):
+                 use_motion_gate=True, contrastive_dim=128, late_dropout_rate=0.5):
         super().__init__()
         self.preprocess = PreprocessLayer(max_len=max_len)
         self.use_motion_gate = use_motion_gate
@@ -297,7 +297,7 @@ class SignTransformer(nn.Module):
         # Output heads
         self.top_conv = nn.Linear(dim, dim * 2)
         self.global_pool = nn.AdaptiveAvgPool1d(1)
-        self.late_dropout = LateDropout(0.8, start_step=dropout_step)
+        self.late_dropout = LateDropout(late_dropout_rate, start_step=dropout_step)
         self.classifier = nn.Linear(dim * 2, num_classes)
         
         # Contrastive head (for metric learning)
@@ -357,7 +357,10 @@ class SignTransformer(nn.Module):
 
 
 def load_tf_weights(model, tf_model_path):
-    pass
+    raise NotImplementedError(
+        "Direct TF .h5 weight loading is not supported. "
+        "Use PyTorch checkpoints (MODEL/checkpoints/*.pt) instead."
+    )
 
 
 if __name__ == '__main__':
