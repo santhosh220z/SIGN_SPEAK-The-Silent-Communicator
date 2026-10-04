@@ -3,6 +3,9 @@ torch>=2.6.0
 torchvision>=0.21.0
 torchaudio>=2.6.0
 
+# YOLOv11 for hand detection
+ultralytics>=8.3.0
+
 # Original dependencies
 opencv-python>=4.10.0
 numpy>=1.26.0
