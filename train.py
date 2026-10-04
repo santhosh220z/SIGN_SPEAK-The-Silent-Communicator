@@ -43,7 +43,7 @@ def triplet_loss(embeddings, labels, margin=0.3):
     
     # Hardest negative: min distance among different class
     dist_neg = dist.clone()
-    dist_neg[mask_neg] = float('inf')
+    dist_neg[~mask_neg] = float('inf')
     hardest_neg = dist_neg.min(dim=1)[0]  # (B,)
     
     # Triplet loss
