@@ -196,7 +196,7 @@ def evaluate(model, loader, criterion, device, epoch, writer=None, prefix='Val')
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default='nslt100', 
-                        choices=['nslt100', 'nslt300', 'nslt1000', 'nslt2000', 'wlasl'])
+                        choices=['nslt100', 'nslt300', 'nslt1000', 'nslt2000', 'wlasl', 'asl'])
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--batch-size', type=int, default=64)
     parser.add_argument('--lr', type=float, default=3e-4)
