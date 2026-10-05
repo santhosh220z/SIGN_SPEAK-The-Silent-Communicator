@@ -15,9 +15,12 @@ class SignLanguageDataset(Dataset):
         self.keypoint_dir = Path('dataset/keypoints')
         self.dataset = dataset
         self.split = split
-        
+
         if dataset == 'nslt100':
             self._load_nslt('dataset/nslt_100.json')
+        elif dataset == 'asl':
+            self.keypoint_dir = Path('dataset/keypoints_asl')
+            self._load_nslt('dataset/asl_labels.json')
         elif dataset == 'nslt300':
             self._load_nslt('dataset/nslt_300.json')
         elif dataset == 'nslt1000':
