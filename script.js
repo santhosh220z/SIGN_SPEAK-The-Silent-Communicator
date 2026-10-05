@@ -302,10 +302,10 @@ function drawFaceMesh(ctx, landmarks, width, height) {
         });
     };
 
-    drawGroup(FACE_OVAL, 'rgba(16, 185, 129, 0.7)', '#10b981');
-    drawGroup(LIPS, 'rgba(239, 68, 68, 0.8)', '#ef4444');
-    drawGroup(LEFT_EYE, 'rgba(56, 189, 248, 0.85)', '#38bdf8');
-    drawGroup(RIGHT_EYE, 'rgba(56, 189, 248, 0.85)', '#38bdf8');
+    drawGroup(FACE_OVAL, 'rgba(217, 119, 6, 0.7)', '#d97706');
+    drawGroup(LIPS, 'rgba(179, 84, 30, 0.8)', '#b3541e');
+    drawGroup(LEFT_EYE, 'rgba(146, 100, 50, 0.85)', '#926432');
+    drawGroup(RIGHT_EYE, 'rgba(146, 100, 50, 0.85)', '#926432');
 }
 
 // Draw Hand Mesh Overlay (21 landmarks per hand)
@@ -321,7 +321,7 @@ function drawHandMesh(ctx, landmarks, width, height) {
     ];
 
     // Draw connections
-    ctx.strokeStyle = 'rgba(255, 165, 0, 0.8)';
+    ctx.strokeStyle = 'rgba(217, 119, 6, 0.8)';
     ctx.lineWidth = 2;
     HAND_CONNECTIONS.forEach(([start, end]) => {
         const p1 = landmarks[start];
@@ -338,14 +338,14 @@ function drawHandMesh(ctx, landmarks, width, height) {
     landmarks.forEach((point, i) => {
         ctx.beginPath();
         ctx.arc(point.x * width, point.y * height, 4, 0, Math.PI * 2);
-        ctx.fillStyle = i === 0 ? '#ff6b35' : '#ffa500';
+        ctx.fillStyle = i === 0 ? '#c2410c' : '#d97706';
         ctx.fill();
         
         // Highlight fingertips
         if ([4, 8, 12, 16, 20].includes(i)) {
             ctx.beginPath();
             ctx.arc(point.x * width, point.y * height, 6, 0, Math.PI * 2);
-            ctx.strokeStyle = '#ff6b35';
+            ctx.strokeStyle = '#c2410c';
             ctx.lineWidth = 2;
             ctx.stroke();
         }
@@ -366,7 +366,7 @@ function drawPoseMesh(ctx, landmarks, width, height) {
     ];
 
     // Draw connections
-    ctx.strokeStyle = 'rgba(139, 92, 246, 0.7)';
+    ctx.strokeStyle = 'rgba(146, 100, 50, 0.7)';
     ctx.lineWidth = 3;
     POSE_CONNECTIONS.forEach(([start, end]) => {
         const p1 = landmarks[start];
@@ -386,12 +386,12 @@ function drawPoseMesh(ctx, landmarks, width, height) {
         if (point && point.visibility > 0.5) {
             ctx.beginPath();
             ctx.arc(point.x * width, point.y * height, 6, 0, Math.PI * 2);
-            ctx.fillStyle = '#8b5cf6';
+            ctx.fillStyle = '#926432';
             ctx.fill();
             
             ctx.beginPath();
             ctx.arc(point.x * width, point.y * height, 9, 0, Math.PI * 2);
-            ctx.strokeStyle = '#a855f7';
+            ctx.strokeStyle = '#925f28';
             ctx.lineWidth = 2;
             ctx.stroke();
         }
