@@ -8,9 +8,10 @@
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 </head>
 <body class="app-body">
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <!-- Header Bar -->
     <header class="app-header">
         <div class="brand">
@@ -90,7 +91,7 @@
         </aside>
 
         <!-- Central Main Content Area -->
-        <main class="main-content">
+        <main class="main-content" id="main-content">
             <!-- Video Display Container -->
             <div class="video-card">
                 <div class="video-viewport">
@@ -121,9 +122,9 @@
             <!-- Bottom Prediction Banner -->
             <div class="prediction-banner">
                 <div class="prediction-info">
-                    <span class="prediction-label">RECOGNIZED SIGN PREDICTION</span>
+                    <span class="prediction-label">Recognized sign</span>
                     <div class="prediction-output-wrap">
-                        <h2 id="prediction-output" class="prediction-text">WAITING FOR INPUT...</h2>
+                        <h2 id="prediction-output" class="prediction-text" aria-live="polite">Waiting for input…</h2>
                         <span id="prediction-confidence" class="prediction-badge">0.0%</span>
                     </div>
                 </div>
