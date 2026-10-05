@@ -26,44 +26,46 @@ st.set_page_config(
 # Custom CSS
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Atkinson+Hyperlegible:wght@400;700&display=swap');
+    html, body, [class*="css"] { font-family: 'Atkinson Hyperlegible', sans-serif; }
     .main-header {
-        font-size: 2.5rem;
+        font-family: 'Fraunces', Georgia, serif;
+        font-size: 2.25rem;
         font-weight: 700;
-        color: #10b981;
+        color: #1c1917;
         text-align: center;
         margin-bottom: 0.5rem;
     }
     .sub-header {
         font-size: 1.1rem;
-        color: #6b7280;
+        color: #78716c;
         text-align: center;
         margin-bottom: 2rem;
     }
     .model-info {
-        background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+        background: #ffffff;
         padding: 1.5rem;
-        border-radius: 12px;
-        border: 1px solid #374151;
+        border-radius: 16px;
+        border: 1px solid #e7e0d5;
+        box-shadow: 0 4px 16px rgba(120, 80, 20, 0.06);
     }
-    .model-info h3 {
-        color: #10b981;
-        margin-top: 0;
-    }
+    .model-info h3 { color: #b45309; margin-top: 0; }
     .prediction-box {
-        background: linear-gradient(135deg, #064e3b 0%, #022c22 100%);
+        background: #fffbeb;
         padding: 2rem;
-        border-radius: 12px;
-        border: 2px solid #10b981;
+        border-radius: 16px;
+        border: 2px solid #fbbf24;
         text-align: center;
     }
     .prediction-label {
+        font-family: 'Fraunces', Georgia, serif;
         font-size: 2.5rem;
-        font-weight: 800;
-        color: #10b981;
+        font-weight: 700;
+        color: #92400e;
         margin-bottom: 0.5rem;
     }
     .confidence-bar {
-        background: #064e3b;
+        background: #fde68a;
         border-radius: 8px;
         height: 24px;
         overflow: hidden;
@@ -71,15 +73,15 @@ st.markdown("""
         max-width: 400px;
     }
     .confidence-fill {
-        background: linear-gradient(90deg, #10b981, #34d399);
+        background: #d97706;
         height: 100%;
         border-radius: 8px;
         transition: width 0.3s ease;
     }
     .confidence-text {
         font-size: 1.5rem;
-        font-weight: 600;
-        color: #34d399;
+        font-weight: 700;
+        color: #92400e;
         margin-top: 0.5rem;
     }
     .stats-grid {
@@ -89,51 +91,48 @@ st.markdown("""
         margin-top: 1.5rem;
     }
     .stat-card {
-        background: #1f2937;
+        background: #ffffff;
         padding: 1rem;
-        border-radius: 8px;
-        border: 1px solid #374151;
+        border-radius: 12px;
+        border: 1px solid #e7e0d5;
         text-align: center;
     }
     .stat-value {
         font-size: 1.5rem;
         font-weight: 700;
-        color: #10b981;
+        color: #b45309;
+        font-variant-numeric: tabular-nums;
     }
-    .stat-label {
-        font-size: 0.85rem;
-        color: #9ca3af;
-        margin-top: 0.25rem;
-    }
+    .stat-label { font-size: 0.85rem; color: #78716c; margin-top: 0.25rem; }
     .stButton > button {
         width: 100%;
-        font-weight: 600;
-        border-radius: 8px;
+        font-weight: 700;
+        border-radius: 12px;
         padding: 0.75rem 1.5rem;
         font-size: 1rem;
     }
     .warning-box {
-        background: #78350f;
-        border: 1px solid #d97706;
-        border-radius: 8px;
+        background: #fffbeb;
+        border: 1px solid #fbbf24;
+        border-radius: 12px;
         padding: 1rem;
-        color: #fde047;
+        color: #92400e;
         margin: 1rem 0;
     }
     .success-box {
-        background: #064e3b;
-        border: 1px solid #10b981;
-        border-radius: 8px;
+        background: #f0fdf4;
+        border: 1px solid #86efac;
+        border-radius: 12px;
         padding: 1rem;
-        color: #34d399;
+        color: #15803d;
         margin: 1rem 0;
     }
     .info-box {
-        background: #1e3a5f;
-        border: 1px solid #3b82f6;
-        border-radius: 8px;
+        background: #fff7ed;
+        border: 1px solid #fed7aa;
+        border-radius: 12px;
         padding: 1rem;
-        color: #93c5fd;
+        color: #9a3412;
         margin: 1rem 0;
     }
 </style>
@@ -272,58 +271,6 @@ def extract_keypoints_from_results(face_result, hand_result, pose_result):
                 keypoints[522 + i] = [lm.x, lm.y, lm.z]
     
     return keypoints
-
-
-def preprocess_keypoints(keypoints, max_len=MAX_FRAMES):
-    """Preprocess keypoints to match training preprocessing."""
-    if len(keypoints) == 0:
-        return None
-    
-    T = len(keypoints)
-    if T < max_len:
-        pad = np.full((max_len - T, 543, 3), np.nan, dtype=np.float32)
-        keypoints = np.concatenate([keypoints, pad], axis=0)
-    else:
-        keypoints = keypoints[:max_len]
-    
-    kp = keypoints[:, POINT_LANDMARKS, :]
-    
-    nose_idx = POINT_LANDMARKS.index(17) if 17 in POINT_LANDMARKS else 0
-    ref_coords = kp[:, nose_idx, :]
-    
-    mask = np.isnan(ref_coords)
-    ref_clean = np.where(mask, 0, ref_coords)
-    count = (~mask).sum(axis=(0, 1), keepdims=True)
-    ref_mean = np.where(count > 0, ref_clean.sum(axis=(0, 1), keepdims=True) / count, 0.5)
-    ref_mean = ref_mean.reshape(1, 1, 1, 3)
-    
-    mask_kp = np.isnan(kp)
-    kp_clean = np.where(mask_kp, 0, kp)
-    count_kp = (~mask_kp).sum(axis=(0, 1), keepdims=True)
-    kp_std = np.sqrt(np.where(count_kp > 0, 
-                               np.sum((kp_clean - ref_mean)**2, axis=(0, 1), keepdims=True) / count_kp, 
-                               1.0))
-    
-    kp_norm = (kp - ref_mean) / (kp_std + 1e-6)
-    kp_norm = np.where(np.isnan(kp_norm), 0, kp_norm)
-    
-    xy = kp_norm[..., :2]
-    
-    dx = np.zeros_like(xy)
-    if max_len > 1:
-        dx[:-1] = xy[1:] - xy[:-1]
-    
-    dx2 = np.zeros_like(xy)
-    if max_len > 2:
-        dx2[:-2] = xy[2:] - xy[:-2]
-    
-    app = xy.reshape(max_len, -1)
-    mot = np.concatenate([dx, dx2], axis=-1).reshape(max_len, -1)
-    
-    return {
-        'appearance': torch.from_numpy(app).unsqueeze(0).float(),
-        'motion': torch.from_numpy(mot).unsqueeze(0).float()
-    }
 
 
 @st.cache_data
@@ -541,10 +488,10 @@ def main():
         
         st.markdown("---")
         st.markdown(f"""
-        <div style="text-align: center; padding: 1rem; background: #1f2937; border-radius: 8px; border: 1px solid #374151;">
-            <p style="margin: 0; color: #9ca3af; font-size: 0.85rem;">MODEL</p>
-            <p style="margin: 0.25rem 0 0 0; color: #10b981; font-weight: 700; font-size: 1.1rem;">SignTransformer v1.0</p>
-            <p style="margin: 0.25rem 0 0 0; color: #6b7280; font-size: 0.75rem;">Two-stream + Motion-Gated Attention + Triplet Loss</p>
+        <div style="text-align: center; padding: 1rem; background: #ffffff; border-radius: 8px; border: 1px solid #e7e0d5;">
+            <p style="margin: 0; color: #78716c; font-size: 0.85rem;">MODEL</p>
+            <p style="margin: 0.25rem 0 0 0; color: #b45309; font-weight: 700; font-size: 1.1rem;">SignTransformer v1.0</p>
+            <p style="margin: 0.25rem 0 0 0; color: #78716c; font-size: 0.75rem;">Two-stream + Motion-Gated Attention + Triplet Loss</p>
         </div>
         """, unsafe_allow_html=True)
     
@@ -625,32 +572,27 @@ def main():
                 annotated_frame = draw_landmarks_on_frame(frame_rgb, face_result, hand_result, pose_result)
                 
                 # Display frame
-                frame_placeholder.image(annotated_frame, channels="RGB", use_container_width=True)
+                frame_placeholder.image(annotated_frame, channels="RGB", width='stretch')
                 
                 # Run inference every 30 frames (approx 1 second at 30 FPS)
                 if len(st.session_state.sequence_buffer) >= 30 and st.session_state.frame_count % 30 == 0:
                     seq_array = np.array(st.session_state.sequence_buffer)
-                    preprocessed = preprocess_keypoints(seq_array)
-                    
-                    if preprocessed:
-                        app_feat = preprocessed['appearance'].to(device)
-                        mot_feat = preprocessed['motion'].to(device)
-                        
-                        with torch.no_grad():
-                            # Need to combine features for model forward
-                            # Model expects (B, T, 543, 3) - we'll reconstruct from preprocessed
-                            x = torch.from_numpy(seq_array).unsqueeze(0).float().to(device)
-                            logits, emb = model(x, return_embedding=True)
-                            probs = F.softmax(logits, dim=1)
-                            pred = logits.argmax(1).item()
-                            confidence = probs[0, pred].item() * 100
-                            
-                            if confidence >= conf_threshold:
-                                st.session_state.last_prediction = class_names.get(pred, f"Class {pred}")
-                                st.session_state.last_confidence = confidence
-                                
-                                top3 = probs[0].topk(3)
-                                st.session_state.top3_preds = [(idx.item(), p.item() * 100) for idx, p in zip(top3.indices, top3.values)]
+                    if len(seq_array) > MAX_FRAMES:
+                        seq_array = seq_array[-MAX_FRAMES:]
+                    x = torch.from_numpy(seq_array).unsqueeze(0).float().to(device)
+
+                    with torch.no_grad():
+                        logits, emb = model(x, return_embedding=True)
+                        probs = F.softmax(logits, dim=1)
+                        pred = logits.argmax(1).item()
+                        confidence = probs[0, pred].item() * 100
+
+                        if confidence >= conf_threshold:
+                            st.session_state.last_prediction = class_names.get(pred, f"Class {pred}")
+                            st.session_state.last_confidence = confidence
+
+                            top3 = probs[0].topk(3)
+                            st.session_state.top3_preds = [(idx.item(), p.item() * 100) for idx, p in zip(top3.indices, top3.values)]
                 
                 # Update metrics
                 elapsed = time.time() - loop_start
@@ -684,7 +626,7 @@ def main():
                         """
                     top3_placeholder.markdown(f"""
                     <div style="margin-top: 1rem;">
-                        <h4 style="color: #9ca3af;">Top-3 Predictions</h4>
+                        <h4 style="color: #78716c;">Top-3 Predictions</h4>
                         <div class="stats-grid">{top3_html}</div>
                     </div>
                     """, unsafe_allow_html=True)
@@ -695,9 +637,6 @@ def main():
             st.error(f"Error: {e}")
         finally:
             cap.release()
-            face_landmarker.close()
-            hand_landmarker.close()
-            pose_landmarker.close()
             st.session_state.camera_running = False
             video_placeholder.empty()
     
@@ -725,7 +664,7 @@ def main():
             """
         top3_placeholder.markdown(f"""
         <div style="margin-top: 1rem;">
-            <h4 style="color: #9ca3af;">Top-3 Predictions</h4>
+            <h4 style="color: #78716c;">Top-3 Predictions</h4>
             <div class="stats-grid">{top3_html}</div>
         </div>
         """, unsafe_allow_html=True)
