@@ -140,8 +140,9 @@ st.markdown("""
 
 # Constants
 _CKPT_CANDIDATES = [
-    Path("MODEL/checkpoints/slt100_dim192"),
+    Path("MODEL/checkpoints/asl_dim192"),
     Path("MODEL/checkpoints/nslt100_dim192"),
+    Path("MODEL/checkpoints/slt100_dim192"),
 ]
 MODEL_DIR = next((p for p in _CKPT_CANDIDATES if (p / "best_model.pt").exists()), _CKPT_CANDIDATES[0])
 BEST_MODEL = MODEL_DIR / "best_model.pt"
@@ -170,25 +171,28 @@ def load_model():
     checkpoint = torch.load(BEST_MODEL, map_location=device)
     args = checkpoint.get('args', {})
     
+    num_classes = checkpoint['model'].get('classifier.weight', torch.empty(0, 0)).shape[0] if 'classifier.weight' in checkpoint['model'] else args.get('num_classes', 100)
     model = SignTransformer(
-        num_classes=args.get('num_classes', 100),
+        num_classes=num_classes,
         dim=args.get('dim', 192),
         max_len=args.get('max_len', 64),
         dropout_step=args.get('dropout_step', 5000),
         use_motion_gate=args.get('use_motion_gate', True),
         contrastive_dim=args.get('contrastive_dim', 128)
     ).to(device)
-    
+
     model.load_state_dict(checkpoint['model'])
     model.eval()
-    
-    class_names = {i: f"Class {i}" for i in range(100)}
+
+    class_names = {i: f"Class {i}" for i in range(num_classes)}
     
     info = {
         'epoch': checkpoint.get('epoch', 'N/A'),
         'val_acc': checkpoint.get('best_val_acc', 0),
         'params': sum(p.numel() for p in model.parameters()),
-        'dim': args.get('dim', 192)
+        'dim': args.get('dim', 192),
+        'dataset': args.get('dataset', 'unknown'),
+        'num_classes': num_classes,
     }
     
     return model, device, info, class_names
@@ -403,7 +407,7 @@ def main():
             <p><strong>Best Val Acc:</strong> {info['val_acc']:.2%}</p>
             <p><strong>Best Epoch:</strong> {info['epoch']}</p>
             <p><strong>Device:</strong> {device.type.upper()}</p>
-            <p><strong>Classes:</strong> 100 (NSLT-100)</p>
+            <p><strong>Classes:</strong> {info['num_classes']} ({info['dataset']})</p>
             <p><strong>Input:</strong> 64 frames × 543 landmarks × 3 (xyz)</p>
         </div>
         """, unsafe_allow_html=True)
